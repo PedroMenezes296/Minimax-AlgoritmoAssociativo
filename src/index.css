@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #0A0A0F;
+  --bg-secondary: #12121A;
+  --bg-card: #1A1A28;
+  --border: #2A2A45;
+  --text-primary: #E8E8F0;
+  --text-muted: #6B6B9A;
+  --accent-max: #00BFFF;
+  --accent-min: #FF6B35;
+  --win-ai: #00FF88;
+  --win-human: #FF3355;
+  --draw: #FFD700;
+  --pruned: #2A2A35;
+  --path-chosen: #FFFFFF;
+  --font-display: 'Space Mono', monospace;
+  --font-body: 'IBM Plex Mono', monospace;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  background-color: var(--bg-primary);
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Scrollbar personalizada ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+/* ── Keyframes ── */
+@keyframes fadeScaleIn {
+  from { opacity: 0; transform: scale(0.8); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes glowPulse {
+  0%, 100% { filter: drop-shadow(0 0 4px var(--path-chosen)); }
+  50%       { filter: drop-shadow(0 0 12px var(--path-chosen)); }
+}
+
+@keyframes winPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+@keyframes aiThinking {
+  0%   { opacity: 0.4; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+@keyframes strokeDraw {
+  from { stroke-dashoffset: 1000; }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Utilitários de glow ── */
+.glow-max  { filter: drop-shadow(0 0 6px var(--accent-max)); }
+.glow-min  { filter: drop-shadow(0 0 6px var(--accent-min)); }
+.glow-win  { filter: drop-shadow(0 0 6px var(--win-ai)); }
+.glow-path { animation: glowPulse 1.5s ease-in-out infinite; }
