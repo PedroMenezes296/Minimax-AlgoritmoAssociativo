@@ -47,8 +47,12 @@ function MiniBoard({ board, color }) {
   )
 }
 
-const TreeNode = memo(function TreeNode({ node, pos, animatedUpTo }) {
-  if (node.id > animatedUpTo) return null
+const BADGE_H = 14
+const BADGE_W = 32
+const BADGE_Y = NODE_H - 7 // centered at bottom edge of node
+
+const TreeNode = memo(function TreeNode({ node, pos, animatedUpTo, userRevealedIds, hiddenChildCount, isExpanded, onToggle }) {
+  if (node.id > animatedUpTo && !userRevealedIds?.has(node.id)) return null
 
   const { x, y } = pos
   const color = getNodeColor(node)
@@ -61,11 +65,27 @@ const TreeNode = memo(function TreeNode({ node, pos, animatedUpTo }) {
   const valStr = node.value === null ? '?' : node.value > 0 ? `+${node.value}` : `${node.value}`
   const badge = node.isPruned ? '✂' : node.type
 
+  const hasChildren = (node.childIds?.length || 0) > 0
+  const isExpandable = hasChildren && !node.isPruned
+  const showExpandBadge = hiddenChildCount > 0
+  const showCollapseBadge = isExpanded && hiddenChildCount === 0 && hasChildren
+
+  const handleClick = (e) => {
+    if (isExpandable && onToggle) {
+      e.stopPropagation()
+      onToggle(node.id)
+    }
+  }
+
   return (
     <g
       transform={`translate(${x - halfW}, ${y})`}
       opacity={opacity}
-      style={{ animation: 'fadeScaleIn 0.2s ease-out' }}
+      style={{
+        animation: 'fadeScaleIn 0.2s ease-out',
+        cursor: isExpandable ? 'pointer' : 'default',
+      }}
+      onClick={handleClick}
     >
       {/* Card background */}
       <rect
@@ -120,6 +140,47 @@ const TreeNode = memo(function TreeNode({ node, pos, animatedUpTo }) {
       >
         D{node.depth}
       </text>
+
+      {/* Expand badge: ▶ N hidden children */}
+      {showExpandBadge && (
+        <g>
+          <rect
+            x={NODE_W / 2 - BADGE_W / 2}
+            y={BADGE_Y}
+            width={BADGE_W}
+            height={BADGE_H}
+            rx={7}
+            fill={color}
+            opacity={0.9}
+          />
+          <text
+            x={NODE_W / 2}
+            y={BADGE_Y + BADGE_H - 3}
+            textAnchor="middle"
+            fontSize={8}
+            fontFamily="IBM Plex Mono, monospace"
+            fill={COLORS.bgPrimary}
+            fontWeight="700"
+          >
+            {`▶ ${hiddenChildCount}`}
+          </text>
+        </g>
+      )}
+
+      {/* Collapse indicator: ▼ when expanded and all children visible */}
+      {showCollapseBadge && (
+        <text
+          x={NODE_W / 2}
+          y={BADGE_Y + BADGE_H - 3}
+          textAnchor="middle"
+          fontSize={9}
+          fontFamily="IBM Plex Mono, monospace"
+          fill={COLORS.textMuted}
+          opacity={0.6}
+        >
+          ▼
+        </text>
+      )}
     </g>
   )
 })

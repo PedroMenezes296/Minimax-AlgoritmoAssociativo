@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-export function useTreeAnimation(nodes, renderDepth) {
+export function useTreeAnimation(nodes) {
   const [animatedUpTo, setAnimatedUpTo] = useState(-1)
   const [isAnimating, setIsAnimating] = useState(false)
   const [currentAlpha, setCurrentAlpha] = useState(-Infinity)
@@ -9,20 +9,17 @@ export function useTreeAnimation(nodes, renderDepth) {
   const intervalRef = useRef(null)
   const currentRef = useRef(0)
 
-  const visibleNodes = nodes ? nodes.filter(n => n.depth <= renderDepth) : []
-
   const skip = useCallback(() => {
     if (!nodes || nodes.length === 0) return
     clearInterval(intervalRef.current)
     setAnimatedUpTo(nodes[nodes.length - 1]?.id ?? -1)
     setIsAnimating(false)
-    // Build full step log
-    const lastNode = nodes.filter(n => n.depth <= renderDepth).at(-1)
+    const lastNode = nodes.at(-1)
     if (lastNode) {
       setCurrentAlpha(lastNode.alpha)
       setCurrentBeta(lastNode.beta)
     }
-  }, [nodes, renderDepth])
+  }, [nodes])
 
   useEffect(() => {
     if (!nodes || nodes.length === 0) {
@@ -40,7 +37,7 @@ export function useTreeAnimation(nodes, renderDepth) {
     setCurrentBeta(+Infinity)
     currentRef.current = 0
 
-    const delay = Math.max(8, Math.min(80, 4000 / Math.max(visibleNodes.length, 1)))
+    const delay = Math.max(4, Math.min(15, 800 / Math.max(nodes.length, 1)))
 
     intervalRef.current = setInterval(() => {
       const cur = currentRef.current
@@ -52,11 +49,10 @@ export function useTreeAnimation(nodes, renderDepth) {
 
       const node = nodes[cur]
       setAnimatedUpTo(node.id)
+      setCurrentAlpha(node.alpha)
+      setCurrentBeta(node.beta)
 
-      if (node.depth <= renderDepth) {
-        setCurrentAlpha(node.alpha)
-        setCurrentBeta(node.beta)
-
+      if (node.depth <= 3) {
         const alphaStr = node.alpha === -Infinity ? '-∞' : node.alpha
         const betaStr  = node.beta  === +Infinity ? '+∞' : node.beta
         const valStr   = node.value !== null ? (node.value > 0 ? `+${node.value}` : `${node.value}`) : '?'

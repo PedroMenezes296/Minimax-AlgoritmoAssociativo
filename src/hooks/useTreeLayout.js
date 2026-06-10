@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
 import { computeLayout, getSvgDimensions } from '../utils/treeLayout.js'
 
-export function useTreeLayout(nodes, renderDepth) {
+export function useTreeLayout(nodes, expandedNodes) {
   const positions = useMemo(
-    () => computeLayout(nodes, renderDepth),
-    [nodes, renderDepth]
+    () => computeLayout(nodes, expandedNodes),
+    [nodes, expandedNodes]
   )
 
   const svgDims = useMemo(

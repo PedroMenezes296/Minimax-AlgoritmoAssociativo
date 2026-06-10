@@ -1,20 +1,44 @@
-import React, { useRef, useState, useCallback, useMemo } from 'react'
+import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react'
 import TreeNode from './TreeNode.jsx'
 import TreeEdge from './TreeEdge.jsx'
 import { NODE_H } from '../../utils/treeLayout.js'
 import { COLORS } from '../../constants/colors.js'
 
-export default function TreeCanvas({ nodes, positions, svgDims, animatedUpTo, renderDepth, onSkip, isAnimating }) {
+export default function TreeCanvas({ nodes, positions, svgDims, animatedUpTo, onSkip, isAnimating, expandedNodes, onToggleExpand, userRevealedIds }) {
   const svgRef = useRef(null)
   const [pan, setPan] = useState({ x: 20, y: 20 })
   const [zoom, setZoom] = useState(1)
   const [dragging, setDragging] = useState(false)
+  const [smoothTransition, setSmoothTransition] = useState(false)
   const dragStart = useRef(null)
+  const isDraggingRef = useRef(false)
+  const prevIsAnimating = useRef(false)
 
   const visibleNodes = useMemo(
-    () => (nodes || []).filter(n => n.depth <= renderDepth),
-    [nodes, renderDepth]
+    () => (nodes || []).filter(n => n.depth === 0 || (expandedNodes && expandedNodes.has(n.parentId))),
+    [nodes, expandedNodes]
   )
+
+  // Keep refs up-to-date so the auto-pan rAF callback sees the latest values
+  const visibleNodesRef = useRef(visibleNodes)
+  visibleNodesRef.current = visibleNodes
+  const positionsRef = useRef(positions)
+  positionsRef.current = positions
+  const zoomRef = useRef(zoom)
+  zoomRef.current = zoom
+
+  const visibleIds = useMemo(() => new Set(visibleNodes.map(n => n.id)), [visibleNodes])
+
+  // Count hidden children for each visible node
+  const nodeHiddenChildCount = useMemo(() => {
+    const map = new Map()
+    for (const node of visibleNodes) {
+      const totalChildren = node.childIds?.length || 0
+      const visibleChildren = (node.childIds || []).filter(cid => visibleIds.has(cid)).length
+      map.set(node.id, totalChildren - visibleChildren)
+    }
+    return map
+  }, [visibleNodes, visibleIds])
 
   // Build edges list
   const edges = useMemo(() => {
@@ -37,7 +61,33 @@ export default function TreeCanvas({ nodes, positions, svgDims, animatedUpTo, re
     return result
   }, [visibleNodes, positions])
 
+  // Auto-pan to chosen path after animation ends
+  // Uses rAF so App.jsx has time to expand chosen path nodes first
+  useEffect(() => {
+    if (prevIsAnimating.current && !isAnimating) {
+      requestAnimationFrame(() => {
+        const chosen = visibleNodesRef.current.filter(n => n.isChosenPath)
+        if (chosen.length === 0 || !svgRef.current) return
+        const chosenPos = chosen.map(n => positionsRef.current.get(n.id)).filter(Boolean)
+        if (chosenPos.length === 0) return
+        const svgRect = svgRef.current.getBoundingClientRect()
+        const xs = chosenPos.map(p => p.x)
+        const ys = chosenPos.map(p => p.y)
+        const centerX = (Math.min(...xs) + Math.max(...xs)) / 2
+        const topY = Math.min(...ys)
+        const targetX = svgRect.width / 2 - centerX * zoomRef.current
+        const targetY = svgRect.height * 0.3 - topY * zoomRef.current
+        setSmoothTransition(true)
+        setPan({ x: targetX, y: targetY })
+        setTimeout(() => setSmoothTransition(false), 900)
+      })
+    }
+    prevIsAnimating.current = isAnimating
+  }, [isAnimating])
+
   const handlePointerDown = useCallback((e) => {
+    isDraggingRef.current = false
+    setSmoothTransition(false)
     setDragging(true)
     dragStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y }
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -45,6 +95,7 @@ export default function TreeCanvas({ nodes, positions, svgDims, animatedUpTo, re
 
   const handlePointerMove = useCallback((e) => {
     if (!dragging || !dragStart.current) return
+    isDraggingRef.current = true
     setPan({ x: e.clientX - dragStart.current.x, y: e.clientY - dragStart.current.y })
   }, [dragging])
 
@@ -60,9 +111,17 @@ export default function TreeCanvas({ nodes, positions, svgDims, animatedUpTo, re
   }, [])
 
   const resetView = useCallback(() => {
+    setSmoothTransition(true)
     setPan({ x: 20, y: 20 })
     setZoom(1)
+    setTimeout(() => setSmoothTransition(false), 900)
   }, [])
+
+  // Wrapped toggle: ignore if user was dragging
+  const handleToggleExpand = useCallback((nodeId) => {
+    if (isDraggingRef.current) return
+    onToggleExpand(nodeId)
+  }, [onToggleExpand])
 
   if (!nodes || nodes.length === 0) {
     return (
@@ -131,7 +190,7 @@ export default function TreeCanvas({ nodes, positions, svgDims, animatedUpTo, re
         </button>
       </div>
 
-      {/* Depth info */}
+      {/* Info */}
       <div style={{
         position: 'absolute',
         bottom: '10px',
@@ -141,7 +200,7 @@ export default function TreeCanvas({ nodes, positions, svgDims, animatedUpTo, re
         color: 'var(--text-muted)',
         zIndex: 10,
       }}>
-        Mostrando profundidade 0–{renderDepth} · {visibleNodes.length} nós renderizados
+        {visibleNodes.length} nós visíveis · scroll para zoom · arraste para mover
       </div>
 
       <div
@@ -157,10 +216,18 @@ export default function TreeCanvas({ nodes, positions, svgDims, animatedUpTo, re
           height="100%"
           style={{ display: 'block' }}
         >
-          <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
+          <g style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transition: smoothTransition ? 'transform 0.8s ease-in-out' : 'none',
+          }}>
             {/* Edges first (behind nodes) */}
             {edges
-              .filter(e => e.parentId <= animatedUpTo && e.childId <= animatedUpTo)
+              .filter(e => {
+                const revealed = userRevealedIds || new Set()
+                const parentOk = e.parentId <= animatedUpTo || revealed.has(e.parentId)
+                const childOk  = e.childId  <= animatedUpTo || revealed.has(e.childId)
+                return parentOk && childOk
+              })
               .map(e => (
                 <TreeEdge
                   key={e.key}
@@ -182,6 +249,10 @@ export default function TreeCanvas({ nodes, positions, svgDims, animatedUpTo, re
                   node={node}
                   pos={pos}
                   animatedUpTo={animatedUpTo}
+                  userRevealedIds={userRevealedIds}
+                  hiddenChildCount={nodeHiddenChildCount.get(node.id) || 0}
+                  isExpanded={expandedNodes ? expandedNodes.has(node.id) : false}
+                  onToggle={handleToggleExpand}
                 />
               )
             })}
