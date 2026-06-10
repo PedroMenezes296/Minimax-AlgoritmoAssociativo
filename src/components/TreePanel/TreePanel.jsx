@@ -5,7 +5,7 @@ import Legend from './Legend.jsx'
 
 export default function TreePanel({
   nodes, positions, svgDims, animatedUpTo, stats, isAnimating, useAlphaBeta, onSkip,
-  renderDepth, onRenderDepthChange,
+  expandedNodes, onToggleExpand, userRevealedIds,
 }) {
   return (
     <div style={{
@@ -35,21 +35,14 @@ export default function TreePanel({
         }}>
           ÁRVORE DE DECISÃO
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <label style={{ fontFamily: 'var(--font-body)', fontSize: '10px', color: 'var(--text-muted)' }}>
-            PROFUNDIDADE:
-          </label>
-          <input
-            type="range"
-            min={1} max={7}
-            value={renderDepth}
-            onChange={e => onRenderDepthChange(Number(e.target.value))}
-            style={{ accentColor: 'var(--accent-max)', width: '80px' }}
-          />
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: '12px', color: 'var(--accent-max)', minWidth: '16px' }}>
-            {renderDepth}
-          </span>
-        </div>
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: '10px',
+          color: 'var(--text-muted)',
+          letterSpacing: '0.05em',
+        }}>
+          clique nos nós para expandir/colapsar
+        </span>
       </div>
 
       {/* Stats */}
@@ -61,9 +54,11 @@ export default function TreePanel({
         positions={positions}
         svgDims={svgDims}
         animatedUpTo={animatedUpTo}
-        renderDepth={renderDepth}
         onSkip={onSkip}
         isAnimating={isAnimating}
+        expandedNodes={expandedNodes}
+        onToggleExpand={onToggleExpand}
+        userRevealedIds={userRevealedIds}
       />
 
       {/* Legend */}

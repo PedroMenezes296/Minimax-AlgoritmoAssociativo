@@ -9,14 +9,16 @@ function getHGap(depth) {
   return Math.max(6, 16 - depth * 2)
 }
 
-export function computeLayout(nodes, renderDepth) {
+// expandedNodes: Set<nodeId> — a node's children are visible only if the node is expanded
+export function computeLayout(nodes, expandedNodes) {
   if (!nodes || nodes.length === 0) return new Map()
 
-  // Build lookup maps
   const byId = new Map()
   for (const n of nodes) byId.set(n.id, n)
 
-  const visible = nodes.filter(n => n.depth <= renderDepth)
+  const isVisible = (n) => n.depth === 0 || (expandedNodes && expandedNodes.has(n.parentId))
+
+  const visible = nodes.filter(isVisible)
   if (visible.length === 0) return new Map()
 
   const root = visible[0]
@@ -26,11 +28,11 @@ export function computeLayout(nodes, renderDepth) {
 
   function calcWidth(nodeId) {
     const node = byId.get(nodeId)
-    if (!node || node.depth > renderDepth) return 0
+    if (!node || !isVisible(node)) return 0
 
     const children = (node.childIds || []).filter(cid => {
       const c = byId.get(cid)
-      return c && c.depth <= renderDepth
+      return c && isVisible(c)
     })
 
     if (children.length === 0) {
@@ -52,7 +54,7 @@ export function computeLayout(nodes, renderDepth) {
 
   function assignPos(nodeId, leftX, y) {
     const node = byId.get(nodeId)
-    if (!node || node.depth > renderDepth) return
+    if (!node || !isVisible(node)) return
 
     const sw = subtreeW.get(nodeId) || NODE_W
     const cx = leftX + sw / 2
@@ -60,7 +62,7 @@ export function computeLayout(nodes, renderDepth) {
 
     const children = (node.childIds || []).filter(cid => {
       const c = byId.get(cid)
-      return c && c.depth <= renderDepth
+      return c && isVisible(c)
     })
 
     let childLeft = leftX
